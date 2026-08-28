@@ -1,6 +1,6 @@
 # SQL Operacoes
 
-Analisar dados reais de operacoes logisticas de e-commerce (dataset publico Olist) para identificar gargalos e padroes de atraso na entrega, usando SQL para consultas analiticas e Streamlit para visualizacao de KPIs operacionais.
+Analisar dados publicos de voos da aviacao civil brasileira (ANAC) para identificar padroes de atraso e cancelamento por companhia aerea, aeroporto e periodo, usando SQL para consultas analiticas e Streamlit para visualizacao de KPIs operacionais.
 
 ## Status
 
@@ -16,7 +16,12 @@ Em desenvolvimento
 
 ## Proximos passos
 
-- [ ] Ingestao de dados (download e carga do dataset Olist)
-- [ ] Modelagem (definicao do schema e relacionamentos)
-- [ ] Analise SQL (queries para identificar gargalos de entrega)
-- [ ] Dashboard (visualizacao interativa com Streamlit)
+- [ ] Obter dados da ANAC
+- [ ] Explorar e tratar os dados
+- [ ] Modelar em SQL
+- [ ] Construir queries analiticas
+- [ ] Construir dashboard Streamlit
+
+## Historico de decisoes
+
+- **2026-08-28**: O escopo inicial do projeto era baseado no dataset Olist (e-commerce). Foi alterado para dados de aviacao civil (ANAC) para evitar sobreposicao com outro projeto de portfolio ja existente (brazilian-ecommerce-analytics) e para explorar um dominio mais alinhado a experiencia previa em operacoes.
