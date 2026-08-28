@@ -22,6 +22,7 @@ Em desenvolvimento
 - [ ] Construir queries analiticas
 - [ ] Construir dashboard Streamlit
 
-## Historico de decisoes
+## Decisoes e correcoes
 
-- **2026-08-28**: O escopo inicial do projeto era baseado no dataset Olist (e-commerce). Foi alterado para dados de aviacao civil (ANAC) para evitar sobreposicao com outro projeto de portfolio ja existente (brazilian-ecommerce-analytics) e para explorar um dominio mais alinhado a experiencia previa em operacoes.
+- **2026-08-28 — Mudanca de escopo**: O escopo inicial do projeto era baseado no dataset Olist (e-commerce). Foi alterado para dados de aviacao civil (ANAC) para evitar sobreposicao com outro projeto de portfolio ja existente (brazilian-ecommerce-analytics) e para explorar um dominio mais alinhado a experiencia previa em operacoes.
+- **2026-08-28 — Correcao na view analitica**: Durante a validacao da view `vw_voos_analitico`, foi identificado que ~118 mil voos realizados sem horario de partida/chegada previsto registrado estavam sendo classificados incorretamente como "Atraso > 240" por uma falha no CASE WHEN. Corrigido com uma categoria propria "Sem horario previsto", separando dado incompleto de atraso real.
