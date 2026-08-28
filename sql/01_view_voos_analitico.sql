@@ -22,6 +22,7 @@ SELECT
     -- Categorização do atraso na partida (faixas oficiais ANAC)
     CASE
         WHEN "Partida Real" IS NULL THEN 'Cancelado'
+        WHEN "Partida Prevista" IS NULL THEN 'Sem horário previsto'
         WHEN ROUND((julianday("Partida Real") - julianday("Partida Prevista")) * 1440) < 0
             THEN 'Antecipado'
         WHEN ROUND((julianday("Partida Real") - julianday("Partida Prevista")) * 1440) < 30
@@ -38,6 +39,7 @@ SELECT
     -- Categorização do atraso na chegada (mesmas faixas)
     CASE
         WHEN "Chegada Real" IS NULL THEN 'Cancelado'
+        WHEN "Chegada Prevista" IS NULL THEN 'Sem horário previsto'
         WHEN ROUND((julianday("Chegada Real") - julianday("Chegada Prevista")) * 1440) < 0
             THEN 'Antecipado'
         WHEN ROUND((julianday("Chegada Real") - julianday("Chegada Prevista")) * 1440) < 30
