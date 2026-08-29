@@ -193,3 +193,122 @@ st.caption(
     "(atraso medio de ate 13,4 min em dez/2025), e sexta-feira e o pior dia da "
     "semana. Fins de semana tem operacao mais estavel."
 )
+
+# --- Cruzamento aeroporto x mes ---
+
+st.header("Onde a Sazonalidade Mais Afeta a Operacao")
+st.markdown("*Dados consolidados de 2024-2025*", unsafe_allow_html=True)
+
+NOMES_AEROPORTO = {
+    "SBSP": "SBSP (Congonhas)",
+    "SBGR": "SBGR (Guarulhos)",
+    "SBKP": "SBKP (Viracopos)",
+    "SBGL": "SBGL (Galeao)",
+    "SBBR": "SBBR (Brasilia)",
+    "SBCF": "SBCF (Confins)",
+    "SBSV": "SBSV (Salvador)",
+    "SBRF": "SBRF (Recife)",
+    "SBFZ": "SBFZ (Fortaleza)",
+    "SBCT": "SBCT (Curitiba)",
+    "SBRJ": "SBRJ (S. Dumont)",
+    "SBFL": "SBFL (Florianopolis)",
+    "SBBE": "SBBE (Belem)",
+    "SBEG": "SBEG (Manaus)",
+}
+
+df_heatmap = run_query("""
+    WITH top15 AS (
+        SELECT "ICAO Aeródromo Origem" AS aeroporto
+        FROM vw_voos_operacionais
+        WHERE "ICAO Aeródromo Origem" != 'SBPA'
+        GROUP BY "ICAO Aeródromo Origem"
+        HAVING COUNT(*) >= 5000
+        ORDER BY COUNT(*) DESC
+        LIMIT 14
+    ),
+    por_mes AS (
+        SELECT
+            v."ICAO Aeródromo Origem" AS aeroporto,
+            CAST(SUBSTR(v.ano_mes_referencia, 6, 2) AS INTEGER) AS mes,
+            ROUND(
+                SUM(CASE WHEN v.categoria_atraso_partida IN ('Pontual', 'Antecipado') THEN 1 ELSE 0 END)
+                * 100.0
+                / NULLIF(SUM(CASE WHEN v.categoria_atraso_partida NOT IN ('Cancelado', 'Sem horário previsto') THEN 1 ELSE 0 END), 0),
+                2
+            ) AS pontualidade
+        FROM vw_voos_operacionais v
+        INNER JOIN top15 t ON v."ICAO Aeródromo Origem" = t.aeroporto
+        GROUP BY v."ICAO Aeródromo Origem", CAST(SUBSTR(v.ano_mes_referencia, 6, 2) AS INTEGER)
+    ),
+    variacao AS (
+        SELECT
+            aeroporto,
+            ROUND(
+                MAX(CASE WHEN mes = 12 THEN pontualidade END)
+                - AVG(CASE WHEN mes != 12 THEN pontualidade END),
+                2
+            ) AS variacao_dez_pp
+        FROM por_mes
+        GROUP BY aeroporto
+    )
+    SELECT pm.aeroporto, pm.mes, pm.pontualidade, v.variacao_dez_pp
+    FROM por_mes pm
+    INNER JOIN variacao v ON pm.aeroporto = v.aeroporto
+    ORDER BY v.variacao_dez_pp ASC, pm.mes
+""")
+
+df_heatmap["nome_aeroporto"] = df_heatmap["aeroporto"].map(
+    lambda x: NOMES_AEROPORTO.get(x, x)
+)
+df_heatmap["nome_mes"] = df_heatmap["mes"].map(NOMES_MES)
+
+ordem_aeroportos = (
+    df_heatmap[["nome_aeroporto", "variacao_dez_pp"]]
+    .drop_duplicates()
+    .sort_values("variacao_dez_pp")["nome_aeroporto"]
+    .tolist()
+)
+
+pivot = df_heatmap.pivot(index="nome_aeroporto", columns="nome_mes", values="pontualidade")
+meses_ordenados = [NOMES_MES[i] for i in range(1, 13)]
+pivot = pivot[meses_ordenados]
+pivot = pivot.loc[ordem_aeroportos]
+
+fig_heat = go.Figure(data=go.Heatmap(
+    z=pivot.values,
+    x=pivot.columns.tolist(),
+    y=pivot.index.tolist(),
+    colorscale=[
+        [0.0, "#b71c1c"],
+        [0.3, "#e57373"],
+        [0.5, "#fff176"],
+        [0.7, "#81c784"],
+        [1.0, "#1b5e20"],
+    ],
+    zmin=76,
+    zmax=97,
+    hovertemplate="%{y}<br>%{x}: %{z:.1f}%<extra></extra>",
+    colorbar=dict(title="Pont. (%)"),
+))
+fig_heat.update_layout(
+    yaxis=dict(autorange="reversed"),
+    xaxis_title=None,
+    yaxis_title=None,
+    margin=dict(l=160, r=20, t=20, b=40),
+    height=500,
+)
+st.plotly_chart(fig_heat, use_container_width=True)
+
+st.caption(
+    "O efeito sazonal de dezembro nao e uniforme: Congonhas (-12,6 p.p.), "
+    "Viracopos e Guarulhos concentram a maior queda de pontualidade do pais "
+    "nesse periodo — provavelmente pela combinacao de alta demanda de fim de "
+    "ano com temporais de verao no Sudeste. Aeroportos do Norte/Nordeste "
+    "(Manaus, Recife, Belem) sofrem proporcionalmente menos."
+)
+st.caption(
+    "Nota: SBPA (Porto Alegre) foi excluido desta comparacao devido a "
+    "interrupcao de operacao causada pelas enchentes do Rio Grande do Sul "
+    "(mai-nov/2024), o que tornaria a comparacao sazonal mensal nao "
+    "representativa para esse aeroporto no periodo."
+)

@@ -8,6 +8,12 @@
 -- sobe de ~6,5% para ~10-12%, sugerindo mudança no processo de reporte da ANAC.
 -- Métricas de pontualidade/atraso para esse período devem ser interpretadas com
 -- essa limitação em mente.
+--
+-- EXCLUSÃO: SBPA (Porto Alegre) foi excluído da visualização de heatmap
+-- aeroporto×mês no dashboard por ter operação interrompida entre mai-nov/2024
+-- (enchentes do RS), o que torna a agregação mensal não comparável aos demais
+-- aeroportos que possuem 2 anos completos de dados. SBPA permanece nas queries
+-- brutas abaixo (que usam série temporal completa, não agregação por mês do ano).
 
 -- 1. Matriz aeroporto × mês: pontualidade e atraso para os 15 aeroportos de maior volume
 -- Usa CTE para filtrar os 15 aeroportos com >5.000 voos primeiro, depois cruza com mês.
