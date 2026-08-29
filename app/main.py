@@ -312,3 +312,158 @@ st.caption(
     "(mai-nov/2024), o que tornaria a comparacao sazonal mensal nao "
     "representativa para esse aeroporto no periodo."
 )
+
+# --- Rankings: Aeroportos e Companhias ---
+
+st.header("Rankings: Aeroportos e Companhias")
+
+tab_aero, tab_cia = st.tabs(["Aeroportos", "Companhias"])
+
+with tab_aero:
+    col_aero1, col_aero2 = st.columns(2)
+
+    with col_aero1:
+        st.subheader("Pior pontualidade (min. 5.000 voos)")
+        df_aero_pont = run_query(
+            f"""
+            SELECT
+                "ICAO Aeródromo Origem" AS aeroporto,
+                COUNT(*) AS total_voos,
+                ROUND(
+                    SUM(CASE WHEN categoria_atraso_partida IN ('Pontual', 'Antecipado') THEN 1 ELSE 0 END)
+                    * 100.0
+                    / NULLIF(SUM(CASE WHEN categoria_atraso_partida NOT IN ('Cancelado', 'Sem horário previsto') THEN 1 ELSE 0 END), 0),
+                    2
+                ) AS taxa_pontualidade_pct
+            FROM vw_voos_operacionais
+            WHERE {clausula_ano}
+            GROUP BY "ICAO Aeródromo Origem"
+            HAVING COUNT(*) >= 5000
+            ORDER BY taxa_pontualidade_pct ASC
+            LIMIT 10
+            """,
+            filtro_anos,
+        )
+        df_aero_pont = df_aero_pont.sort_values("taxa_pontualidade_pct", ascending=True)
+        fig_aero = go.Figure()
+        fig_aero.add_trace(go.Bar(
+            y=df_aero_pont["aeroporto"],
+            x=df_aero_pont["taxa_pontualidade_pct"],
+            orientation="h",
+            marker_color="#e74c3c",
+            text=df_aero_pont["taxa_pontualidade_pct"].apply(lambda v: f"{v:.1f}%"),
+            textposition="outside",
+            hovertemplate="%{y}: %{x:.1f}%<extra></extra>",
+        ))
+        fig_aero.update_layout(
+            xaxis_title="Pontualidade (%)",
+            yaxis=dict(autorange="reversed"),
+            margin=dict(l=60, r=60, t=20, b=40),
+            height=400,
+        )
+        st.plotly_chart(fig_aero, use_container_width=True)
+
+    with col_aero2:
+        st.subheader("Maior cancelamento real (min. 5.000 voos)")
+        df_aero_canc = run_query(
+            f"""
+            SELECT
+                "ICAO Aeródromo Origem" AS aeroporto,
+                COUNT(*) AS total_voos,
+                SUM(CASE WHEN "Situação Voo" = 'CANCELADO' THEN 1 ELSE 0 END) AS cancelados,
+                ROUND(
+                    SUM(CASE WHEN "Situação Voo" = 'CANCELADO' THEN 1 ELSE 0 END)
+                    * 100.0 / COUNT(*), 2
+                ) AS taxa_cancelamento_pct
+            FROM vw_voos_operacionais
+            WHERE {clausula_ano}
+            GROUP BY "ICAO Aeródromo Origem"
+            HAVING COUNT(*) >= 5000
+            ORDER BY taxa_cancelamento_pct DESC
+            LIMIT 5
+            """,
+            filtro_anos,
+        )
+        df_aero_canc = df_aero_canc.sort_values("taxa_cancelamento_pct", ascending=True)
+        cores_canc = [
+            "#b71c1c" if a == "SBJR" else "#e74c3c"
+            for a in df_aero_canc["aeroporto"]
+        ]
+        fig_canc = go.Figure()
+        fig_canc.add_trace(go.Bar(
+            y=df_aero_canc["aeroporto"],
+            x=df_aero_canc["taxa_cancelamento_pct"],
+            orientation="h",
+            marker_color=cores_canc,
+            text=df_aero_canc["taxa_cancelamento_pct"].apply(lambda v: f"{v:.1f}%"),
+            textposition="outside",
+            hovertemplate="%{y}: %{x:.1f}%<br>%{customdata} cancelados<extra></extra>",
+            customdata=df_aero_canc["cancelados"],
+        ))
+        fig_canc.update_layout(
+            xaxis_title="Cancelamento (%)",
+            yaxis=dict(autorange="reversed"),
+            margin=dict(l=60, r=60, t=20, b=40),
+            height=400,
+        )
+        st.plotly_chart(fig_canc, use_container_width=True)
+
+with tab_cia:
+    st.subheader("Pontualidade por companhia (min. 5.000 voos, completude >= 50%)")
+    NACIONAIS = {"GLO", "TAM", "AZU"}
+    df_cia = run_query(
+        f"""
+        SELECT
+            "ICAO Empresa Aérea" AS empresa,
+            COUNT(*) AS total_voos,
+            ROUND(
+                SUM(CASE WHEN categoria_atraso_partida IN ('Pontual', 'Antecipado') THEN 1 ELSE 0 END)
+                * 100.0
+                / NULLIF(SUM(CASE WHEN categoria_atraso_partida NOT IN ('Cancelado', 'Sem horário previsto') THEN 1 ELSE 0 END), 0),
+                2
+            ) AS taxa_pontualidade_pct,
+            ROUND(AVG(CASE WHEN atraso_partida_min IS NOT NULL THEN atraso_partida_min END), 1) AS atraso_medio_min
+        FROM vw_voos_operacionais
+        WHERE {clausula_ano}
+        GROUP BY "ICAO Empresa Aérea"
+        HAVING COUNT(*) >= 5000
+           AND SUM(CASE WHEN atraso_partida_min IS NOT NULL THEN 1 ELSE 0 END) * 1.0 / COUNT(*) >= 0.5
+        ORDER BY taxa_pontualidade_pct DESC
+        """,
+        filtro_anos,
+    )
+    df_cia = df_cia.sort_values("taxa_pontualidade_pct", ascending=True)
+    cores_cia = [
+        "#2e7d32" if e in NACIONAIS else "#3498db"
+        for e in df_cia["empresa"]
+    ]
+    fig_cia = go.Figure()
+    fig_cia.add_trace(go.Bar(
+        y=df_cia["empresa"],
+        x=df_cia["taxa_pontualidade_pct"],
+        orientation="h",
+        marker_color=cores_cia,
+        text=df_cia["taxa_pontualidade_pct"].apply(lambda v: f"{v:.1f}%"),
+        textposition="outside",
+        hovertemplate="%{y}: %{x:.1f}% (%{customdata} voos)<extra></extra>",
+        customdata=df_cia["total_voos"],
+    ))
+    fig_cia.update_layout(
+        xaxis_title="Pontualidade (%)",
+        yaxis=dict(autorange="reversed"),
+        margin=dict(l=60, r=60, t=20, b=40),
+        height=max(350, len(df_cia) * 30),
+    )
+    st.plotly_chart(fig_cia, use_container_width=True)
+    st.caption("Barras verdes: grandes nacionais (GLO, TAM, AZU)")
+
+with st.expander("Sobre a qualidade dos dados"):
+    st.markdown(
+        "Para garantir rankings justos, foram excluidos desta analise: "
+        "**(1)** registros de voos autorizados mas nunca operados "
+        "(codeshares/parcerias nao efetivadas), que inflavam artificialmente "
+        "o cancelamento de certos aeroportos e empresas, e "
+        "**(2)** companhias com mais de 50% de dados incompletos, geralmente "
+        "operadoras de carga com padrao de escala incompativel com a metrica, "
+        "ou com defasagem de reporte da ANAC a partir de abril/2025."
+    )
