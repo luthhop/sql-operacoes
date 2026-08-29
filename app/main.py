@@ -8,7 +8,7 @@ import streamlit as st
 DB_PATH = Path(__file__).resolve().parent.parent / "data" / "processed" / "vra.db"
 
 st.set_page_config(
-    page_title="SQL Operacoes — Analise de Voos ANAC",
+    page_title="SQL Operações — Análise de Voos ANAC",
     page_icon="✈️",
     layout="wide",
 )
@@ -23,19 +23,19 @@ def run_query(query: str, params: tuple = ()) -> pd.DataFrame:
     return pd.read_sql_query(query, get_connection(), params=params)
 
 
-# --- Cabecalho ---
+# --- Cabeçalho ---
 
-st.title("✈️ SQL Operacoes")
+st.title("✈️ SQL Operações")
 st.markdown(
-    "Analise de pontualidade e cancelamento de voos no Brasil, "
-    "com dados publicos da ANAC — 2024/2025 · "
-    "[Repositorio GitHub](https://github.com/luthhop/sql-operacoes)"
+    "Análise de pontualidade e cancelamento de voos no Brasil, "
+    "com dados públicos da ANAC — 2024/2025 · "
+    "[Repositório GitHub](https://github.com/luthhop/sql-operacoes)"
 )
 
 # --- Sidebar: filtros ---
 
 st.sidebar.header("Filtros")
-opcao_ano = st.sidebar.radio("Periodo", ["2024 e 2025", "2024", "2025"])
+opcao_ano = st.sidebar.radio("Período", ["2024 e 2025", "2024", "2025"])
 
 if opcao_ano == "2024":
     filtro_anos = ("2024",)
@@ -47,9 +47,9 @@ else:
     filtro_anos = ("2024", "2025")
     clausula_ano = "SUBSTR(ano_mes_referencia, 1, 4) IN (?, ?)"
 
-# --- Visao Geral ---
+# --- Visão Geral ---
 
-st.header("Visao Geral")
+st.header("Visão Geral")
 
 query_metricas = f"""
 SELECT
@@ -77,7 +77,7 @@ c1, c2, c3, c4 = st.columns(4)
 c1.metric("Total de voos", f"{int(row['total_voos']):,}".replace(",", "."))
 c2.metric("Pontualidade", f"{row['taxa_pontualidade_pct']:.1f}%")
 c3.metric("Cancelamento", f"{row['taxa_cancelamento_pct']:.1f}%")
-c4.metric("Atraso medio", f"{row['atraso_medio_min']:.1f} min")
+c4.metric("Atraso médio", f"{row['atraso_medio_min']:.1f} min")
 
 # --- Sazonalidade ---
 
@@ -88,7 +88,6 @@ NOMES_MES = {
     7: "Jul", 8: "Ago", 9: "Set", 10: "Out", 11: "Nov", 12: "Dez",
 }
 
-# Pontualidade por mes do ano (agregado)
 df_mes = run_query(
     f"""
     SELECT
@@ -112,7 +111,7 @@ df_mes["destaque"] = df_mes["mes"] == 12
 col_saz1, col_saz2 = st.columns(2)
 
 with col_saz1:
-    st.subheader("Pontualidade por mes")
+    st.subheader("Pontualidade por mês")
     cores = ["#e74c3c" if d else "#3498db" for d in df_mes["destaque"]]
     fig_mes = go.Figure()
     fig_mes.add_trace(go.Scatter(
@@ -126,7 +125,7 @@ with col_saz1:
     fig_mes.add_annotation(
         x="Dez",
         y=df_mes.loc[df_mes["mes"] == 12, "taxa_pontualidade_pct"].iloc[0],
-        text="Pior mes",
+        text="Pior mês",
         showarrow=True,
         arrowhead=2,
         ax=0,
@@ -144,7 +143,7 @@ with col_saz1:
 
 # Pontualidade por dia da semana
 NOMES_DIA = {
-    0: "Dom", 1: "Seg", 2: "Ter", 3: "Qua", 4: "Qui", 5: "Sex", 6: "Sab",
+    0: "Dom", 1: "Seg", 2: "Ter", 3: "Qua", 4: "Qui", 5: "Sex", 6: "Sáb",
 }
 ORDEM_DIA = [1, 2, 3, 4, 5, 6, 0]
 
@@ -189,30 +188,30 @@ with col_saz2:
     st.plotly_chart(fig_dia, use_container_width=True)
 
 st.caption(
-    "Dezembro e consistentemente o pior mes do periodo "
-    "(atraso medio de ate 13,4 min em dez/2025), e sexta-feira e o pior dia da "
-    "semana. Fins de semana tem operacao mais estavel."
+    "Dezembro é consistentemente o pior mês do período "
+    "(atraso médio de até 13,4 min em dez/2025), e sexta-feira é o pior dia da "
+    "semana. Fins de semana têm operação mais estável."
 )
 
-# --- Cruzamento aeroporto x mes ---
+# --- Cruzamento aeroporto × mês ---
 
-st.header("Onde a Sazonalidade Mais Afeta a Operacao")
+st.header("Onde a Sazonalidade Mais Afeta a Operação")
 st.markdown("*Dados consolidados de 2024-2025*", unsafe_allow_html=True)
 
 NOMES_AEROPORTO = {
     "SBSP": "SBSP (Congonhas)",
     "SBGR": "SBGR (Guarulhos)",
     "SBKP": "SBKP (Viracopos)",
-    "SBGL": "SBGL (Galeao)",
-    "SBBR": "SBBR (Brasilia)",
+    "SBGL": "SBGL (Galeão)",
+    "SBBR": "SBBR (Brasília)",
     "SBCF": "SBCF (Confins)",
     "SBSV": "SBSV (Salvador)",
     "SBRF": "SBRF (Recife)",
     "SBFZ": "SBFZ (Fortaleza)",
     "SBCT": "SBCT (Curitiba)",
     "SBRJ": "SBRJ (S. Dumont)",
-    "SBFL": "SBFL (Florianopolis)",
-    "SBBE": "SBBE (Belem)",
+    "SBFL": "SBFL (Florianópolis)",
+    "SBBE": "SBBE (Belém)",
     "SBEG": "SBEG (Manaus)",
 }
 
@@ -300,17 +299,17 @@ fig_heat.update_layout(
 st.plotly_chart(fig_heat, use_container_width=True)
 
 st.caption(
-    "O efeito sazonal de dezembro nao e uniforme: Congonhas (-12,6 p.p.), "
-    "Viracopos e Guarulhos concentram a maior queda de pontualidade do pais "
-    "nesse periodo — provavelmente pela combinacao de alta demanda de fim de "
-    "ano com temporais de verao no Sudeste. Aeroportos do Norte/Nordeste "
-    "(Manaus, Recife, Belem) sofrem proporcionalmente menos."
+    "O efeito sazonal de dezembro não é uniforme: Congonhas (-12,6 p.p.), "
+    "Viracopos e Guarulhos concentram a maior queda de pontualidade do país "
+    "nesse período — provavelmente pela combinação de alta demanda de fim de "
+    "ano com temporais de verão no Sudeste. Aeroportos do Norte/Nordeste "
+    "(Manaus, Recife, Belém) sofrem proporcionalmente menos."
 )
 st.caption(
-    "Nota: SBPA (Porto Alegre) foi excluido desta comparacao devido a "
-    "interrupcao de operacao causada pelas enchentes do Rio Grande do Sul "
-    "(mai-nov/2024), o que tornaria a comparacao sazonal mensal nao "
-    "representativa para esse aeroporto no periodo."
+    "Nota: SBPA (Porto Alegre) foi excluído desta comparação devido à "
+    "interrupção de operação causada pelas enchentes do Rio Grande do Sul "
+    "(mai-nov/2024), o que tornaria a comparação sazonal mensal não "
+    "representativa para esse aeroporto no período."
 )
 
 # --- Rankings: Aeroportos e Companhias ---
@@ -323,7 +322,7 @@ with tab_aero:
     col_aero1, col_aero2 = st.columns(2)
 
     with col_aero1:
-        st.subheader("Pior pontualidade (min. 5.000 voos)")
+        st.subheader("Pior pontualidade (mín. 5.000 voos)")
         df_aero_pont = run_query(
             f"""
             SELECT
@@ -345,6 +344,7 @@ with tab_aero:
             filtro_anos,
         )
         df_aero_pont = df_aero_pont.sort_values("taxa_pontualidade_pct", ascending=True)
+        max_pont = df_aero_pont["taxa_pontualidade_pct"].max()
         fig_aero = go.Figure()
         fig_aero.add_trace(go.Bar(
             y=df_aero_pont["aeroporto"],
@@ -357,14 +357,15 @@ with tab_aero:
         ))
         fig_aero.update_layout(
             xaxis_title="Pontualidade (%)",
+            xaxis=dict(range=[0, max_pont * 1.15]),
             yaxis=dict(autorange="reversed"),
-            margin=dict(l=60, r=60, t=20, b=40),
+            margin=dict(l=60, r=20, t=20, b=40),
             height=400,
         )
         st.plotly_chart(fig_aero, use_container_width=True)
 
     with col_aero2:
-        st.subheader("Maior cancelamento real (min. 5.000 voos)")
+        st.subheader("Maior cancelamento real (mín. 5.000 voos)")
         df_aero_canc = run_query(
             f"""
             SELECT
@@ -385,6 +386,7 @@ with tab_aero:
             filtro_anos,
         )
         df_aero_canc = df_aero_canc.sort_values("taxa_cancelamento_pct", ascending=True)
+        max_canc = df_aero_canc["taxa_cancelamento_pct"].max()
         cores_canc = [
             "#b71c1c" if a == "SBJR" else "#e74c3c"
             for a in df_aero_canc["aeroporto"]
@@ -402,14 +404,15 @@ with tab_aero:
         ))
         fig_canc.update_layout(
             xaxis_title="Cancelamento (%)",
+            xaxis=dict(range=[0, max_canc * 1.25]),
             yaxis=dict(autorange="reversed"),
-            margin=dict(l=60, r=60, t=20, b=40),
+            margin=dict(l=60, r=20, t=20, b=40),
             height=400,
         )
         st.plotly_chart(fig_canc, use_container_width=True)
 
 with tab_cia:
-    st.subheader("Pontualidade por companhia (min. 5.000 voos, completude >= 50%)")
+    st.subheader("Pontualidade por companhia (mín. 5.000 voos, completude ≥ 50%)")
     NACIONAIS = {"GLO", "TAM", "AZU"}
     df_cia = run_query(
         f"""
@@ -459,11 +462,11 @@ with tab_cia:
 
 with st.expander("Sobre a qualidade dos dados"):
     st.markdown(
-        "Para garantir rankings justos, foram excluidos desta analise: "
+        "Para garantir rankings justos, foram excluídos desta análise: "
         "**(1)** registros de voos autorizados mas nunca operados "
-        "(codeshares/parcerias nao efetivadas), que inflavam artificialmente "
+        "(codeshares/parcerias não efetivadas), que inflavam artificialmente "
         "o cancelamento de certos aeroportos e empresas, e "
         "**(2)** companhias com mais de 50% de dados incompletos, geralmente "
-        "operadoras de carga com padrao de escala incompativel com a metrica, "
+        "operadoras de carga com padrão de escala incompatível com a métrica, "
         "ou com defasagem de reporte da ANAC a partir de abril/2025."
     )
