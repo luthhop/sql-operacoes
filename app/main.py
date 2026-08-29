@@ -2,6 +2,7 @@ import sqlite3
 from pathlib import Path
 
 import pandas as pd
+import plotly.graph_objects as go
 import streamlit as st
 
 DB_PATH = Path(__file__).resolve().parent.parent / "data" / "processed" / "vra.db"
@@ -77,3 +78,118 @@ c1.metric("Total de voos", f"{int(row['total_voos']):,}".replace(",", "."))
 c2.metric("Pontualidade", f"{row['taxa_pontualidade_pct']:.1f}%")
 c3.metric("Cancelamento", f"{row['taxa_cancelamento_pct']:.1f}%")
 c4.metric("Atraso medio", f"{row['atraso_medio_min']:.1f} min")
+
+# --- Sazonalidade ---
+
+st.header("Sazonalidade")
+
+NOMES_MES = {
+    1: "Jan", 2: "Fev", 3: "Mar", 4: "Abr", 5: "Mai", 6: "Jun",
+    7: "Jul", 8: "Ago", 9: "Set", 10: "Out", 11: "Nov", 12: "Dez",
+}
+
+# Pontualidade por mes do ano (agregado)
+df_mes = run_query(
+    f"""
+    SELECT
+        CAST(SUBSTR(ano_mes_referencia, 6, 2) AS INTEGER) AS mes,
+        ROUND(
+            SUM(CASE WHEN categoria_atraso_partida IN ('Pontual', 'Antecipado') THEN 1 ELSE 0 END)
+            * 100.0
+            / SUM(CASE WHEN categoria_atraso_partida NOT IN ('Cancelado', 'Sem horário previsto') THEN 1 ELSE 0 END),
+            2
+        ) AS taxa_pontualidade_pct
+    FROM vw_voos_analitico
+    WHERE {clausula_ano}
+    GROUP BY mes
+    ORDER BY mes
+    """,
+    filtro_anos,
+)
+df_mes["nome_mes"] = df_mes["mes"].map(NOMES_MES)
+df_mes["destaque"] = df_mes["mes"] == 12
+
+col_saz1, col_saz2 = st.columns(2)
+
+with col_saz1:
+    st.subheader("Pontualidade por mes")
+    cores = ["#e74c3c" if d else "#3498db" for d in df_mes["destaque"]]
+    fig_mes = go.Figure()
+    fig_mes.add_trace(go.Scatter(
+        x=df_mes["nome_mes"],
+        y=df_mes["taxa_pontualidade_pct"],
+        mode="lines+markers",
+        marker=dict(color=cores, size=10),
+        line=dict(color="#3498db", width=2),
+        hovertemplate="%{x}: %{y:.1f}%<extra></extra>",
+    ))
+    fig_mes.add_annotation(
+        x="Dez",
+        y=df_mes.loc[df_mes["mes"] == 12, "taxa_pontualidade_pct"].iloc[0],
+        text="Pior mes",
+        showarrow=True,
+        arrowhead=2,
+        ax=0,
+        ay=-30,
+        font=dict(color="#e74c3c", size=12),
+    )
+    fig_mes.update_layout(
+        yaxis_title="Pontualidade (%)",
+        xaxis_title=None,
+        margin=dict(l=40, r=20, t=20, b=40),
+        height=350,
+        showlegend=False,
+    )
+    st.plotly_chart(fig_mes, use_container_width=True)
+
+# Pontualidade por dia da semana
+NOMES_DIA = {
+    0: "Dom", 1: "Seg", 2: "Ter", 3: "Qua", 4: "Qui", 5: "Sex", 6: "Sab",
+}
+ORDEM_DIA = [1, 2, 3, 4, 5, 6, 0]
+
+df_dia = run_query(
+    f"""
+    SELECT
+        CAST(strftime('%w', "Partida Prevista") AS INTEGER) AS dia_semana_num,
+        ROUND(
+            SUM(CASE WHEN categoria_atraso_partida IN ('Pontual', 'Antecipado') THEN 1 ELSE 0 END)
+            * 100.0
+            / SUM(CASE WHEN categoria_atraso_partida NOT IN ('Cancelado', 'Sem horário previsto') THEN 1 ELSE 0 END),
+            2
+        ) AS taxa_pontualidade_pct
+    FROM vw_voos_analitico
+    WHERE "Partida Prevista" IS NOT NULL
+      AND {clausula_ano}
+    GROUP BY dia_semana_num
+    ORDER BY dia_semana_num
+    """,
+    filtro_anos,
+)
+df_dia["nome_dia"] = df_dia["dia_semana_num"].map(NOMES_DIA)
+df_dia["ordem"] = df_dia["dia_semana_num"].map(dict(zip(ORDEM_DIA, range(7))))
+df_dia = df_dia.sort_values("ordem")
+
+with col_saz2:
+    st.subheader("Pontualidade por dia da semana")
+    cores_dia = ["#e74c3c" if d == 5 else "#3498db" for d in df_dia["dia_semana_num"]]
+    fig_dia = go.Figure()
+    fig_dia.add_trace(go.Bar(
+        x=df_dia["nome_dia"],
+        y=df_dia["taxa_pontualidade_pct"],
+        marker_color=cores_dia,
+        hovertemplate="%{x}: %{y:.1f}%<extra></extra>",
+    ))
+    fig_dia.update_layout(
+        yaxis_title="Pontualidade (%)",
+        xaxis_title=None,
+        margin=dict(l=40, r=20, t=20, b=40),
+        height=350,
+    )
+    st.plotly_chart(fig_dia, use_container_width=True)
+
+st.caption(
+    "Dezembro e consistentemente o pior mes do periodo "
+    "(atraso medio de ate 13,4 min em dez/2025), e sexta-feira e o pior dia da "
+    "semana. Fins de semana tem operacao mais estavel."
+)
