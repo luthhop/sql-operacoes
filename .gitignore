@@ -26,10 +26,7 @@ ENV/
 .DS_Store
 Thumbs.db
 
-# Dados brutos (arquivos grandes, nao devem ir pro Git)
-data/raw/
-
-# Banco SQLite gerado (dado processado, regeneravel pelo script)
+# Banco SQLite gerado (dado processado, regeneravel a partir dos CSVs)
 data/processed/*.db
 
 # Streamlit

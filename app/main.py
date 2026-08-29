@@ -1,3 +1,6 @@
+import glob
+import os
+import re
 import sqlite3
 from pathlib import Path
 
@@ -5,7 +8,11 @@ import pandas as pd
 import plotly.graph_objects as go
 import streamlit as st
 
-DB_PATH = Path(__file__).resolve().parent.parent / "data" / "processed" / "vra.db"
+APP_DIR = Path(__file__).resolve().parent
+PROJECT_DIR = APP_DIR.parent
+DB_PATH = PROJECT_DIR / "data" / "processed" / "vra.db"
+RAW_DIR = PROJECT_DIR / "data" / "raw"
+SQL_DIR = PROJECT_DIR / "sql"
 
 st.set_page_config(
     page_title="SQL Operações — Análise de Voos ANAC",
@@ -14,8 +21,48 @@ st.set_page_config(
 )
 
 
+def _build_database():
+    DATETIME_COLS = [
+        "Partida Prevista", "Partida Real", "Chegada Prevista", "Chegada Real",
+    ]
+    files = sorted(
+        glob.glob(str(RAW_DIR / "VRA_*.csv")),
+        key=lambda f: (
+            int(re.search(r"VRA_(\d{4})", f).group(1)),
+            int(re.search(r"VRA_\d{4}(\d{1,2})\.csv", f).group(1)),
+        ),
+    )
+    dfs = []
+    for f in files:
+        match = re.search(r"VRA_(\d{4})(\d{1,2})\.csv$", f)
+        ano_mes = f"{match.group(1)}-{int(match.group(2)):02d}"
+        df = pd.read_csv(f, sep=";", encoding="utf-8-sig", skiprows=1, dtype=str)
+        df["ano_mes_referencia"] = ano_mes
+        dfs.append(df)
+    df = pd.concat(dfs, ignore_index=True)
+    df = df.drop(columns=["Código Justificativa"])
+    for col in DATETIME_COLS:
+        df[col] = pd.to_datetime(df[col], format="%Y-%m-%d %H:%M:%S", errors="coerce")
+    DB_PATH.parent.mkdir(parents=True, exist_ok=True)
+    conn = sqlite3.connect(str(DB_PATH))
+    df.to_sql("voos", conn, if_exists="replace", index=False)
+    for sql_file in ["01_view_voos_analitico.sql", "00_view_voos_operacionais.sql"]:
+        raw = (SQL_DIR / sql_file).read_text(encoding="utf-8")
+        lines = [l for l in raw.splitlines() if not l.strip().startswith("--")]
+        sql = "\n".join(lines)
+        for statement in sql.split(";"):
+            statement = statement.strip()
+            if statement:
+                conn.execute(statement)
+    conn.commit()
+    conn.close()
+
+
 @st.cache_resource
 def get_connection():
+    if not DB_PATH.exists():
+        with st.spinner("Preparando base de dados na primeira execução..."):
+            _build_database()
     return sqlite3.connect(str(DB_PATH), check_same_thread=False)
 
 
