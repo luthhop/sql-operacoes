@@ -21,19 +21,19 @@ Pipeline em camadas, com cada etapa documentada em `sql/`:
 
 ### 1. Visão Geral e Sazonalidade
 
-[Adicione aqui: ![Visão Geral](docs/visao_geral.png)]
+![Visão Geral](docs/visao_geral.png)
 
 KPIs gerais (pontualidade, cancelamento, atraso médio) com filtro por ano, gráfico de pontualidade por mês e por dia da semana.
 
 ### 2. Cruzamento Aeroporto x Mês
 
-[Adicione aqui: ![Cruzamento](docs/cruzamento_aeroporto_mes.png)]
+![Cruzamento](docs/cruzamento_aeroporto_mes.png)
 
 Mapa de calor mostrando onde o efeito sazonal de dezembro mais impacta a operação, por aeroporto.
 
 ### 3. Rankings: Aeroportos e Companhias
 
-[Adicione aqui: ![Rankings](docs/rankings.png)]
+![Rankings](docs/rankings.png)
 
 Piores aeroportos em pontualidade e cancelamento real, ranking de companhias aéreas, com nota sobre tratamento de qualidade de dados.
 
